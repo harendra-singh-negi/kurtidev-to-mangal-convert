@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <p>kruti text</p>
+    <textarea id="krutitext" onchange="krutitomangal()"></textarea>
+    <br />
+    <!-- <p>mangal text</p> -->
+    <!-- <textarea id="mangaltext"></textarea> -->
+    <script src="./krutimangal.js"></script>
+  </body>
+</html>
+
+<script>
+  var CHAR_COUNT_LIMIT;
+  var hindiTextarea = document.querySelector(".hindi-textarea");
+  var engTextarea = document.querySelector(".english-textarea");
+  var capOptions = document.getElementById("capOptions");
+
+  $(function () {
+    $('[data-toggle="popover"]').popover();
+  });
+
+  window.onload = function () {
+    CHAR_COUNT_LIMIT = 1000;
+    document.querySelector(".currentCharCount").textContent =
+      "0/" + CHAR_COUNT_LIMIT;
+    if (localStorage.getItem("textCase") == null) {
+      localStorage.setItem("textCase", "lowercase");
+    }
+  };
+
+  function countChar() {
+    var currentCharCount = hindiTextarea.textLength;
+
+    var charCountSpan = document.querySelector(".currentCharCount");
+    charCountSpan.textContent = currentCharCount + "/" + CHAR_COUNT_LIMIT;
+
+    if (currentCharCount > CHAR_COUNT_LIMIT) {
+      charCountSpan.classList.add("red-color");
+      engTextarea.value = "Text must not exceed 1000 characters.";
+    } else {
+      charCountSpan.classList.remove("red-color");
+    }
+  }
+
+  function convert() {
+    var text = hindiTextarea.value;
+
+    if (text.length == 0 || text.length > CHAR_COUNT_LIMIT) {
+      engTextarea.value = "Text must not exceed 1000 characters.";
+      return;
+    } else {
+      text = encodeURIComponent(text);
+      ajax.post("hinglishConverter.php", { hindiText: text }, function (resp) {
+        engTextarea.value = resp;
+
+        var textCase = localStorage.getItem("textCase");
+        if (textCase == "lowercase") {
+          lowercase();
+        } else if (textCase == "uppercase") {
+          uppercase();
+        } else if (textCase == "capitalizeWord") {
+          capitalizeWord();
+        } else {
+          capitalizeSentence();
+        }
+      });
+    }
+  }
+
+  function copyToClipboard() {
+    engTextarea.select();
+    if (document.execCommand("copy")) {
+      var copyBtn = $("#copyToClipboard");
+      copyBtn.attr("data-content", "Text copied");
+      setTimeout(function () {
+        copyBtn.popover("hide");
+      }, 2000);
+    }
+  }
+
+  function lowercase() {
+    var text = engTextarea.value;
+    engTextarea.value = text.toLowerCase();
+    capOptions.classList.add("active1");
+    localStorage.setItem("textCase", "lowercase");
+  }
+
+  function uppercase() {
+    var text = engTextarea.value;
+    engTextarea.value = text.toUpperCase();
+    capOptions.classList.add("active2");
+    localStorage.setItem("textCase", "uppercase");
+  }
+
+  function capitalizeWord() {
+    var text = engTextarea.value;
+    engTextarea.value = text
+      .toLowerCase()
+      .replace(/./, (x) => x.toUpperCase())
+      .replace(/[^']\b\w/g, (y) => y.toUpperCase());
+    capOptions.classList.add("active3");
+    localStorage.setItem("textCase", "capitalizeWord");
+  }
+
+  function capitalizeSentence() {
+    var text = engTextarea.value.toLowerCase();
+    var separators = [".", "!", "?", "\n"];
+    engTextarea.value = splitTextForChar(text, separators);
+    capOptions.classList.add("active4");
+    localStorage.setItem("textCase", "capitalizeSentence");
+  }
+
+  function splitTextForChar(text, separators) {
+    for (var i = 0; i < separators.length; i++) {
+      text = text
+        .split(separators[i])
+        .map(function (line) {
+          if (line.length > 0) {
+            if (line[0] == " ") {
+              line = line[0] + line[1].toUpperCase() + line.substr(2);
+            } else {
+              line = line[0].toUpperCase() + line.substr(1);
+            }
+          }
+          return line;
+        })
+        .join(separators[i]);
+    }
+    return text;
+  }
+
+  var ajax = {};
+  ajax.x = function () {
+    if (typeof XMLHttpRequest !== "undefined") {
+      return new XMLHttpRequest();
+    }
+    var versions = [
+      "MSXML2.XmlHttp.6.0",
+      "MSXML2.XmlHttp.5.0",
+      "MSXML2.XmlHttp.4.0",
+      "MSXML2.XmlHttp.3.0",
+      "MSXML2.XmlHttp.2.0",
+      "Microsoft.XmlHttp",
+    ];
+    var xhr;
+    for (var i = 0; i < versions.length; i++) {
+      try {
+        xhr = new ActiveXObject(versions[i]);
+        break;
+      } catch (e) {}
+    }
+    return xhr;
+  };
+  ajax.send = function (url, callback, method, data, async) {
+    if (async === undefined) {
+      async = true;
+    }
+    var x = ajax.x();
+    x.open(method, url, async);
+    x.onreadystatechange = function () {
+      if (x.readyState == 4) {
+        callback(x.responseText);
+      }
+    };
+    if (method == "POST") {
+      x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    }
+    x.send(data);
+  };
+  ajax.get = function (url, data, callback, async) {
+    var query = [];
+    for (var key in data) {
+      query.push(encodeURIComponent(key) + "=" + encodeURIComponent(data[key]));
+    }
+    ajax.send(
+      url + (query.length ? "?" + query.join("&") : ""),
+      callback,
+      "GET",
+      null,
+      async
+    );
+  };
+  ajax.post = function (url, data, callback, async) {
+    var query = [];
+    for (var key in data) {
+      query.push(encodeURIComponent(key) + "=" + encodeURIComponent(data[key]));
+    }
+    ajax.send(url, callback, "POST", query.join("&"), async);
+  };
+</script>
